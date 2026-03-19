@@ -117,7 +117,7 @@ NA00003
 
 # Remove a sample from the store using 3 processes
 % vczstore dremove-init data/store.vcz HG00100 -n 3
-% parallel -j 3 vczstore dremove-partition data/store.vcz {} ::: seq 0 2
+% parallel -j 3 vczstore dremove-partition data/store.vcz {} ::: $(seq 0 2)
 % vczstore dremove-finalise data/store.vcz
 % vcztools query -l data/store.vcz | wc -l
 99
