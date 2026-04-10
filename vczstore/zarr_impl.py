@@ -10,7 +10,7 @@ from vczstore.utils import missing_val
 logger = logging.getLogger(__name__)
 
 
-def append(vcz1, vcz2, *, variants_sel=None):
+def append(vcz1, vcz2, *, variants_mask=None):
     """Append vcz2 to vcz1 in place"""
     root1 = zarr.open(vcz1, mode="r+")
     root2 = zarr.open(vcz2, mode="r")
@@ -42,8 +42,10 @@ def append(vcz1, vcz2, *, variants_sel=None):
     sample_id1.resize(new_shape)
     sample_id1[old_num_samples:new_num_samples] = sample_id2[:]
 
-    if variants_sel is None:
+    if variants_mask is None:
         variants_sel = slice(None)
+    else:
+        variants_sel = ~variants_mask
 
     # append genotype fields
     for var in root1.keys():

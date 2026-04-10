@@ -170,7 +170,7 @@ def test_append_partitioned(tmp_path):
 
 # bcftools merge tests/data/vcf/alleles-1.vcf.gz tests/data/vcf/alleles-2.vcf.gz -o tests/data/vcf/alleles-merged.vcf.gz -W=csi
 # bin/vcf-drop-samples.sh tests/data/vcf/alleles-merged.vcf.gz tests/data/vcf/alleles-variants.vcf.gz
-def test_append_from_variants_list_sel(tmp_path):
+def test_append_from_variants_list_mask(tmp_path):
     print(tmp_path)
 
     vcz0 = convert_vcf_to_vcz("alleles-variants.vcf.gz", tmp_path, ploidy=2)
@@ -181,8 +181,8 @@ def test_append_from_variants_list_sel(tmp_path):
     vcztools_out, _ = run_vcztools(f"query -l {vcz0}")
     assert vcztools_out.strip() == ""
 
-    append(vcz0, vcz1, variants_sel=np.array([True, True, False], dtype=bool))
-    append(vcz0, vcz2, variants_sel=np.array([True, False, True], dtype=bool))
+    append(vcz0, vcz1, variants_mask=np.array([False, False, True], dtype=bool))
+    append(vcz0, vcz2, variants_mask=np.array([False, True, False], dtype=bool))
 
     # check samples query
     vcztools_out, _ = run_vcztools(f"query -l {vcz0}")
