@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 import zarr
+from vcztools.retrieval import variant_iter
 from vcztools.utils import search
 from vcztools.vcf_writer import dims
 
@@ -84,3 +85,50 @@ def remove(vcz, sample_id):
             and dims(arr)[1] == "samples"
         ):
             root[var][:, selection, ...] = missing_val(arr)
+
+
+def index_variants(vcz1, vcz2):
+    """Return a mask for variants of vcz2 not in vcz1"""
+    root1 = zarr.open(vcz1, mode="r")
+    n_variants = root1["variant_contig"].shape[0]
+
+    fields = ["variant_contig", "variant_position", "variant_allele"]
+    it1 = variant_iter(vcz1, fields=fields)
+    it2 = variant_iter(vcz2, fields=fields)
+    mask = np.zeros(n_variants, dtype=bool)
+    prev = None
+    for i, variant in enumerate(it1):
+        if prev is not None:
+            if variant_is_not_after(variant, prev):
+                v = prev
+            else:
+                raise ValueError(f"Variant not found in VARIANTS_VCF_FILE: {prev}")
+        else:
+            try:
+                v = next(it2)
+            except StopIteration:
+                v = None
+        if v is not None and variant_alleles_are_equivalent(variant, v):
+            # mask is False
+            prev = None
+        else:
+            mask[i] = True
+            prev = v
+    return mask
+
+
+def variant_is_not_after(variant1, variant2):
+    """Test if variant 1 is not after variant 2 along the genome"""
+    return (
+        variant1["variant_contig"] == variant2["variant_contig"]
+        and variant1["variant_position"] <= variant2["variant_position"]
+    )
+
+
+def variant_alleles_are_equivalent(variant1, variant2):
+    """Test if two variants represent equivalent alleles"""
+    return (
+        variant1["variant_contig"] == variant2["variant_contig"]
+        and variant1["variant_position"] == variant2["variant_position"]
+        and np.all(variant1["variant_allele"] == variant2["variant_allele"])
+    )
