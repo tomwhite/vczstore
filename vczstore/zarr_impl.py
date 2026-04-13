@@ -92,7 +92,7 @@ def index_variants(vcz1, vcz2):
     root1 = zarr.open(vcz1, mode="r")
     n_variants = root1["variant_contig"].shape[0]
 
-    # TODO: cehck contig IDs are identical too
+    # TODO: check contig IDs are identical too
 
     fields = ["variant_contig", "variant_position", "variant_allele"]
     it1 = variant_iter(vcz1, fields=fields)
