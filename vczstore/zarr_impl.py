@@ -104,6 +104,7 @@ def index_variants(vcz1, vcz2):
             if variant_is_not_after(variant, prev):
                 v = prev
             else:
+                # TODO: write test for this case (and change message)
                 raise ValueError(f"Variant not found in VARIANTS_VCF_FILE: {prev}")
         else:
             try:
