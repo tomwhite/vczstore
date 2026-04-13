@@ -11,27 +11,33 @@ from vczstore.utils import missing_val
 logger = logging.getLogger(__name__)
 
 
-def append(vcz1, vcz2, *, variants_mask=None):
+def append(vcz1, vcz2, *, allow_variant_subset=False, variants_mask=None):
     """Append vcz2 to vcz1 in place"""
     root1 = zarr.open(vcz1, mode="r+")
     root2 = zarr.open(vcz2, mode="r")
 
-    # TODO: reinstate checks
     # check preconditions
-    # n_variants1 = root1["variant_contig"].shape[0]
-    # n_variants2 = root2["variant_contig"].shape[0]
-    # if n_variants1 != n_variants2:
-    #     raise ValueError(
-    #         "Stores being appended must have same number of variants. "
-    #         f"First has {n_variants1}, second has {n_variants2}"
-    #     )
-    # for field in ("contig_id", "variant_contig", "variant_position", "variant_allele"):
-    #     values1 = root1[field][:]
-    #     values2 = root2[field][:]
-    #     if np.any(values1 != values2):
-    #         raise ValueError(
-    #             f"Stores being appended must have same values for field '{field}'"
-    #         )
+    if not allow_variant_subset:
+        n_variants1 = root1["variant_contig"].shape[0]
+        n_variants2 = root2["variant_contig"].shape[0]
+        if n_variants1 != n_variants2:
+            raise ValueError(
+                "Stores being appended must have same number of variants. "
+                f"First has {n_variants1}, second has {n_variants2}"
+            )
+        for field in (
+            "contig_id",
+            "variant_contig",
+            "variant_position",
+            "variant_allele",
+        ):
+            values1 = root1[field][:]
+            values2 = root2[field][:]
+            if np.any(values1 != values2):
+                raise ValueError(
+                    f"Stores being appended must have same values for field '{field}'"
+                )
+    # TODO: different check if allow_variant_subset
 
     # append samples
     sample_id1 = root1["sample_id"]
@@ -42,6 +48,10 @@ def append(vcz1, vcz2, *, variants_mask=None):
     new_shape = (new_num_samples,)
     sample_id1.resize(new_shape)
     sample_id1[old_num_samples:new_num_samples] = sample_id2[:]
+
+    if allow_variant_subset and variants_mask is None:
+        variants_mask = index_variants(vcz1, vcz2)
+        # TODO: store mask
 
     if variants_mask is None:
         variants_sel = slice(None)

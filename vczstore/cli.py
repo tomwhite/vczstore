@@ -46,9 +46,14 @@ zarr_backend_storage = click.option(
 @click.command()
 @click.argument("vcz1", type=click.Path())
 @click.argument("vcz2", type=click.Path())
+@click.option(
+    "--allow-variant-subset",
+    default=False,
+    help="Allow variants in VCZ2 to be a subset of VCZ1.",
+)
 @impl
 @zarr_backend_storage
-def append(vcz1, vcz2, impl, zarr_backend_storage):
+def append(vcz1, vcz2, allow_variant_subset, impl, zarr_backend_storage):
     """Append vcz2 to vcz1 in place"""
     if impl is None or impl == "zarr":
         from vczstore.zarr_impl import append as append_function
