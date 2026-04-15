@@ -16,7 +16,9 @@ authors = [
   {name = "sgkit Developers", email = "project@sgkit.dev"},
 ]
 dependencies = [
+  "bio2zarr @ git+https://github.com/sgkit-dev/bio2zarr.git",
   "click>=8.2.0",
+  "more_itertools",
   "numpy>=1.23.5,<2.4",
   "vcztools @ git+https://github.com/sgkit-dev/vcztools.git",
   "zarr>=3.1",
@@ -50,7 +52,6 @@ icechunk = ["hypothesis", "icechunk"]
 [dependency-groups]
 test = [
   "azure-storage-blob",
-  "bio2zarr @ git+https://github.com/sgkit-dev/bio2zarr.git",
   "cyvcf2",
   "pytest",
   "pytest-cov",
@@ -105,6 +106,7 @@ known-third-party = [
   "bio2zarr",
   "click",
   "cyvcf2",
+  "more_itertools",
   "numpy",
   "pytest",
   "setuptools",
