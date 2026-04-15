@@ -24,10 +24,8 @@
 
 
 import pytest
-import zarr
 
 from vczstore.zarr_impl import append
-from vczstore.zarr_partition_impl import append_finalise, append_init, append_partition
 
 from .utils import (
     compare_vcf_and_vcz,
@@ -133,35 +131,3 @@ def test_append_icechunk(tmp_path):
         "view --no-version --zarr-backend-storage icechunk",
         vcz1,
     )
-
-
-def test_append_partitioned(tmp_path):
-    vcz1 = convert_vcf_to_vcz(
-        "chr22-part1.vcf.gz", tmp_path, variants_chunk_size=10, samples_chunk_size=50
-    )
-    vcz2 = convert_vcf_to_vcz(
-        "chr22-part2.vcf.gz", tmp_path, variants_chunk_size=10, samples_chunk_size=50
-    )
-
-    # check samples query
-    vcztools_out, _ = run_vcztools(f"query -l {vcz1}")
-    assert len(vcztools_out.strip().split("\n")) == 55
-
-    append_init(vcz1, vcz2, 3)
-    append_partition(vcz1, vcz2, 0)
-    append_partition(vcz1, vcz2, 1)
-    append_partition(vcz1, vcz2, 2)
-    append_finalise(vcz1, vcz2)
-
-    # check samples query
-    vcztools_out, _ = run_vcztools(f"query -l {vcz1}")
-    assert len(vcztools_out.strip().split("\n")) == 100
-
-    # check equivalence with original VCF
-    compare_vcf_and_vcz(
-        tmp_path, "view --no-version", "chr22.vcf.gz", "view --no-version", vcz1
-    )
-
-    # check append parameters are not in zarr attributes
-    root = zarr.open(vcz1, mode="r+")
-    assert "append" not in root.attrs

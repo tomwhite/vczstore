@@ -17,16 +17,6 @@ def show_work_summary(work_summary):
     click.echo(output)
 
 
-num_partitions = click.option(
-    "-n",
-    "--num-partitions",
-    type=click.IntRange(min=1),
-    default=None,
-    help="Target number of partitions to use for distributed operations",
-)
-
-partition = click.argument("partition", type=click.IntRange(min=0))
-
 impl = click.option(
     "-i",
     "--impl",
@@ -101,88 +91,6 @@ def remove(vcz, sample_id, impl, zarr_backend_storage):
 @click.command()
 @click.argument("vcz1", type=click.Path())
 @click.argument("vcz2", type=click.Path())
-@num_partitions
-def dappend_init(vcz1, vcz2, num_partitions):
-    """
-    Initial step for distributed append of vcz2 to vcz1 in place.
-    """
-    from vczstore.zarr_partition_impl import append_init
-
-    work_summary = append_init(vcz1, vcz2, target_num_partitions=num_partitions)
-    show_work_summary(work_summary)
-
-
-@click.command()
-@click.argument("vcz1", type=click.Path())
-@click.argument("vcz2", type=click.Path())
-@partition
-def dappend_partition(vcz1, vcz2, partition):
-    """
-    Append vcz2 to vcz1 in place for a partition.
-
-    Must be called after the distributed append operation has been
-    initialised with dappend_init.
-    """
-    from vczstore.zarr_partition_impl import append_partition
-
-    append_partition(vcz1, vcz2, partition)
-
-
-@click.command()
-@click.argument("vcz1", type=click.Path())
-@click.argument("vcz2", type=click.Path())
-def dappend_finalise(vcz1, vcz2):
-    """
-    Final step for distributed append of vcz2 to vcz1 in place.
-    """
-    from vczstore.zarr_partition_impl import append_finalise
-
-    append_finalise(vcz1, vcz2)
-
-
-@click.command()
-@click.argument("vcz", type=click.Path())
-@click.argument("sample_id", type=str)
-@num_partitions
-def dremove_init(vcz, sample_id, num_partitions):
-    """
-    Initial step for distributed remove of a sample from vcz.
-    """
-    from vczstore.zarr_partition_impl import remove_init
-
-    work_summary = remove_init(vcz, sample_id, target_num_partitions=num_partitions)
-    show_work_summary(work_summary)
-
-
-@click.command()
-@click.argument("vcz", type=click.Path())
-@partition
-def dremove_partition(vcz, partition):
-    """
-    Remove a sample from vcz for a partition.
-
-    Must be called after the distributed remove operation has been
-    initialised with dremove_init.
-    """
-    from vczstore.zarr_partition_impl import remove_partition
-
-    remove_partition(vcz, partition)
-
-
-@click.command()
-@click.argument("vcz", type=click.Path())
-def dremove_finalise(vcz):
-    """
-    Final step for distributed remove of a sample from vcz.
-    """
-    from vczstore.zarr_partition_impl import remove_finalise
-
-    remove_finalise(vcz)
-
-
-@click.command()
-@click.argument("vcz1", type=click.Path())
-@click.argument("vcz2", type=click.Path())
 def copy_store_to_icechunk(vcz1, vcz2):
     """Copy a Zarr store to a new Icechunk store"""
     from vczstore.icechunk_utils import (
@@ -201,9 +109,3 @@ vczstore_main.add_command(append)
 vczstore_main.add_command(normalise)
 vczstore_main.add_command(remove)
 vczstore_main.add_command(copy_store_to_icechunk)
-vczstore_main.add_command(dappend_init)
-vczstore_main.add_command(dappend_partition)
-vczstore_main.add_command(dappend_finalise)
-vczstore_main.add_command(dremove_init)
-vczstore_main.add_command(dremove_partition)
-vczstore_main.add_command(dremove_finalise)
