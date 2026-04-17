@@ -3,7 +3,7 @@ import zarr
 from bio2zarr.zarr_utils import create_empty_group_array, get_compressor
 from more_itertools import peekable
 from vcztools.constants import STR_FILL, STR_MISSING
-from vcztools.retrieval import variant_iter
+from vcztools.retrieval import VczReader
 from vcztools.utils import array_dims, search
 
 from vczstore.utils import missing_val
@@ -133,8 +133,8 @@ def index_variants(vcz1, vcz2):
     updated_allele_mappings = {}
 
     fields = ["variant_contig", "variant_position", "variant_allele"]
-    it1 = variant_iter(vcz1, fields=fields)
-    it2 = peekable(variant_iter(vcz2, fields=fields))
+    it1 = VczReader(vcz1).variants(fields=fields)
+    it2 = peekable(VczReader(vcz2).variants(fields=fields))
     for i, variant in enumerate(it1):
         v = it2.peek(None)
         if v is None:
