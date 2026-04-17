@@ -8,6 +8,7 @@ from numpy.testing import assert_array_equal
 from vczstore.normalise import (
     index_variants,
     normalise,
+    remap_genotypes,
     variant_alleles_are_equivalent,
 )
 
@@ -141,6 +142,28 @@ def test_variant_alleles_are_equivalent(
     assert_array_equal(updated, expected_updated)
 
 
+def test_remap_genotypes__no_op():
+    gt = np.array([[[0, 1]], [[1, 0]]], dtype=np.int8)
+    original = gt.copy()
+    remap_genotypes(gt, [], [])
+    assert_array_equal(gt, original)
+
+
+def test_remap_genotypes__single_variant():
+    # alleles [A, T, C] remapped to [A, C, T]: mapping is [0, 2, 1]
+    gt = np.array([[[0, 1]], [[2, 1]]], dtype=np.int8)
+    remap_genotypes(gt, [1], [np.array([0, 2, 1])])
+    assert_array_equal(gt, [[[0, 1]], [[1, 2]]])
+
+
+def test_remap_genotypes__multiple_variants():
+    gt = np.array([[[1, 2]], [[3, 0]]], dtype=np.int8)
+    # variant 0: vcz2=[A, C, T], vcz1=[A, T, C]: mapping [0, 2, 1]
+    # variant 1: vcz2=[A, G, T, C], vcz1=[A, T, C, G]: mapping [0, 3, 1, 2]
+    remap_genotypes(gt, [0, 1], [np.array([0, 2, 1]), np.array([0, 3, 1, 2])])
+    assert_array_equal(gt, [[[2, 1]], [[2, 0]]])
+
+
 def test_index_variants__success_subset():
     vcz1 = make_vcz([0, 0, 0], [1, 2, 3], [["A", "T"], ["C", "G"], ["T", "A"]])
     vcz2 = make_vcz([0, 0], [1, 3], [["A", "T"], ["T", "A"]])
@@ -207,7 +230,7 @@ def test_index_variants__new_allele():
         index_variants(vcz1, vcz2)
 
 
-@pytest.mark.parametrize("variants_chunk_size", [None, 5])
+@pytest.mark.parametrize("variants_chunk_size", [None, 1, 3, 4, 5, 10])
 def test_normalise(variants_chunk_size):
     vcz1 = make_vcz(
         variant_contig=[0, 0, 0, 0, 0, 0, 0, 0, 0],
