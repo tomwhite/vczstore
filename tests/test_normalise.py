@@ -8,6 +8,7 @@ from numpy.testing import assert_array_equal
 from vczstore.normalise import (
     index_variants,
     normalise,
+    remap_genotypes,
     variant_alleles_are_equivalent,
 )
 
@@ -23,6 +24,8 @@ def make_vcz(
     variants_chunk_size=None,
     samples_chunk_size=None,
     call_genotype=None,
+    call_fields=None,
+    call_field_dims=None,
     ploidy=2,
 ):
 
@@ -97,6 +100,16 @@ def make_vcz(
             compressors=None,
             filters=None,
         )
+    if call_fields is not None:
+        for name, data in call_fields.items():
+            root.create_array(
+                name=f"call_{name}",
+                data=data,
+                chunks=(v_chunk, s_chunk, data.shape[2]),
+                dimension_names=call_field_dims[name],
+                compressors=None,
+                filters=None,
+            )
     return store
 
 
@@ -139,6 +152,28 @@ def test_variant_alleles_are_equivalent(
     assert matched == expected_matched
     assert_array_equal(mapping, expected_mapping)
     assert_array_equal(updated, expected_updated)
+
+
+def test_remap_genotypes__no_op():
+    gt = np.array([[[0, 1]], [[1, 0]]], dtype=np.int8)
+    original = gt.copy()
+    remap_genotypes(gt, [], [])
+    assert_array_equal(gt, original)
+
+
+def test_remap_genotypes__single_variant():
+    # alleles [A, T, C] remapped to [A, C, T]: mapping is [0, 2, 1]
+    gt = np.array([[[0, 1]], [[2, 1]]], dtype=np.int8)
+    remap_genotypes(gt, [1], [np.array([0, 2, 1])])
+    assert_array_equal(gt, [[[0, 1]], [[1, 2]]])
+
+
+def test_remap_genotypes__multiple_variants():
+    gt = np.array([[[1, 2]], [[3, 0]]], dtype=np.int8)
+    # variant 0: vcz2=[A, C, T], vcz1=[A, T, C]: mapping [0, 2, 1]
+    # variant 1: vcz2=[A, G, T, C], vcz1=[A, T, C, G]: mapping [0, 3, 1, 2]
+    remap_genotypes(gt, [0, 1], [np.array([0, 2, 1]), np.array([0, 3, 1, 2])])
+    assert_array_equal(gt, [[[2, 1]], [[2, 0]]])
 
 
 def test_index_variants__success_subset():
@@ -207,7 +242,7 @@ def test_index_variants__new_allele():
         index_variants(vcz1, vcz2)
 
 
-@pytest.mark.parametrize("variants_chunk_size", [None, 5])
+@pytest.mark.parametrize("variants_chunk_size", [None, 1, 3, 4, 5, 10])
 def test_normalise(variants_chunk_size):
     vcz1 = make_vcz(
         variant_contig=[0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -266,3 +301,26 @@ def test_normalise(variants_chunk_size):
             [[0, 1]],  # remapped to vcz1 order
         ],
     )
+
+
+def test_normalise__other_call_fields_not_implemented():
+    vcz1 = make_vcz(
+        variant_contig=[0],
+        variant_position=[1],
+        alleles=[["A", "T", "G"]],
+    )
+
+    vcz2 = make_vcz(
+        variant_contig=[0],
+        variant_position=[1],
+        alleles=[["A", "G", "T"]],  # order different to vcz1
+        sample_id=["S1"],
+        call_genotype=[[[0, 2]]],
+        call_fields={"AD": np.array([[[10, -1, 20]]], dtype=np.int8)},
+        call_field_dims={"AD": ["variants", "samples", "alleles"]},
+    )
+
+    vcz2_norm = zarr.storage.MemoryStore()
+
+    with pytest.raises(NotImplementedError):
+        normalise(vcz1, vcz2, vcz2_norm)

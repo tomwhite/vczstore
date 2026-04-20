@@ -18,7 +18,7 @@ The append operation works by appending a VCF Zarr file to the store (which is a
 
 Note that only new _samples_ can be added - not new variants - so the store contains a fixed set of variants that must be known before it is created. This is usually not a limitation since the samples come from the same genotype array, or even from the same reference panel for imputed data.
 
-If the source VCFs have different (but typically overlapping) sets of variants, then they need to be harmonised with the full set of variants before being converted to VCF Zarr. This can be accomplished using bcftools merge or similar tools - it is not performed by vczstore itself.
+If the source VCFs have different (but typically overlapping) sets of variants, then they need to be harmonised with the full set of variants before being converted to VCF Zarr. This can be accomplished by running `vczstore normalise` before running append.
 
 The append operation will perform a check that the contig, position and allele (REF and ALT) fields all match before performing the update. It will fail if there is a mismatch, so samples with inconsistent variant sets cannot be appended. The check is strict - allele ordering must match exactly too.
 

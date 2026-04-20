@@ -6,7 +6,7 @@ from vcztools.constants import STR_FILL, STR_MISSING
 from vcztools.retrieval import VczReader
 from vcztools.utils import array_dims, search
 
-from vczstore.utils import missing_val
+from vczstore.utils import missing_val, variant_chunk_slices
 
 
 def normalise(vcz1, vcz2, vcz2_norm):
@@ -35,6 +35,14 @@ def normalise(vcz1, vcz2, vcz2_norm):
         if var.startswith("call_"):
             # normalise genotype fields
             arr = root2[var]
+            for dim in array_dims(arr):
+                if dim in ("alleles", "alt_alleles", "genotypes") or dim.startswith(
+                    "local_"
+                ):
+                    raise NotImplementedError(
+                        f"Allele remapping not supported for dim {dim} in "
+                        f"variable {var}"
+                    )
             shape = (n_variants,) + arr.shape[1:]
             chunks = (variants_chunk_size,) + arr.chunks[1:]
             create_empty_group_array(
@@ -73,34 +81,57 @@ def normalise(vcz1, vcz2, vcz2_norm):
             arr = root1[var]
         norm_root[var][:] = arr[...]
 
+    # turn bool indexes into int array indexes
+    match_idx = np.where(index)[0]
+    remap_idx = np.where(remap_alleles)[0]
+
+    # find chunk boundaries
+    chunk_bounds = np.arange(0, n_variants, step=variants_chunk_size)
+    chunk_bounds = np.append(chunk_bounds, [n_variants])
+
+    # find chunk offsets for indexes
+    match_starts = np.searchsorted(match_idx, chunk_bounds)
+    remap_starts = np.searchsorted(remap_idx, chunk_bounds)
+
+    allele_mappings_list = list(allele_mappings.values())
+
     # copy variant-chunked arrays
-    # TODO: do this chunk-by-chunk
-    for var, arr in root2.arrays():
-        if array_dims(arr)[0] != "variants":
-            continue
-        # copy call arrays from vcz2, everything else from vcz1
-        if var.startswith("call_"):
-            arr = root2[var]
-            shape = (n_variants,) + arr.shape[1:]
-            data = np.full(shape, fill_value=missing_val(arr), dtype=arr.dtype)
-            data[index, ...] = arr[...]
-            if var == "call_genotype":
-                remap_genotypes(data, allele_mappings)
-            norm_root[var][:] = data
-        else:
-            arr = root1[var]
-            norm_root[var][:] = arr[...]
+    for i, v_sel in enumerate(variant_chunk_slices(root1)):
+        for var, arr in root2.arrays():
+            if array_dims(arr)[0] != "variants":
+                continue
+            # copy genotype fields from vcz2, everything else from vcz1
+            if var.startswith("call_"):
+                arr = root2[var]
+                chunk_n = v_sel.stop - v_sel.start
+                shape = (chunk_n,) + arr.shape[1:]
+                data = np.full(shape, fill_value=missing_val(arr), dtype=arr.dtype)
+
+                match_sl = slice(match_starts[i], match_starts[i + 1])
+                local_idx = match_idx[match_sl] - v_sel.start
+                data[local_idx, ...] = arr[match_sl, ...]
+
+                if var == "call_genotype":
+                    remap_sl = slice(remap_starts[i], remap_starts[i + 1])
+                    local_remap_idx = remap_idx[remap_sl] - v_sel.start
+                    chunk_maps = allele_mappings_list[remap_sl]
+                    remap_genotypes(data, local_remap_idx, chunk_maps)
+
+                norm_root[var][v_sel] = data
+            else:
+                arr = root1[var]
+                norm_root[var][v_sel] = arr[v_sel, ...]
 
 
-def remap_genotypes(gt, allele_mappings):
+def remap_genotypes(gt, indices, mappings):
     """Update a genotype array in-place by remapping allele indices.
 
-    allele_mappings is a dict of {variant_index: int_array} as returned by
-    index_variants.
+    indices and mappings are parallel arrays of variant positions and their
+    allele index remappings.
     """
     num_samples = gt.shape[1]
     ploidy = gt.shape[2]
-    for i, mapping in allele_mappings.items():
+    for i, mapping in zip(indices, mappings):
         for j in range(num_samples):
             for k in range(ploidy):
                 val = gt[i, j, k]
@@ -119,6 +150,10 @@ def index_variants(vcz1, vcz2):
             remapping.
         updated_allele_mappings: dict {variant_index: str_array} of the updated
             (merged) alleles for variants where vcz2 has extra alleles not in vcz1.
+
+    Note that the allele mappings are dicts which only contain sites where there
+    is a remapping. This is an efficient way to store allele mappings, since they
+    are rare, and are not known ahead of time.
     """
     root1 = zarr.open(vcz1, mode="r")
     root2 = zarr.open(vcz2, mode="r")
