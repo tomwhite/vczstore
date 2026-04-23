@@ -170,8 +170,8 @@ def index_variants(vcz1, vcz2, *, show_progress=False):
     updated_allele_mappings = {}
 
     fields = ["variant_contig", "variant_position", "variant_allele"]
-    it1 = VczReader(vcz1).variants(fields=fields)
-    it2 = peekable(VczReader(vcz2).variants(fields=fields))
+    it1 = VczReader(root1).variants(fields=fields)
+    it2 = peekable(VczReader(root2).variants(fields=fields))
 
     with variants_progress(n_variants, "Index", show_progress) as pbar:
         for i, variant in enumerate(it1):

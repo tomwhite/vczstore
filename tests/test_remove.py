@@ -27,7 +27,7 @@ def test_remove(tmp_path):
     # check equivalence with original VCF (with sample subsetting)
     compare_vcf_and_vcz(
         tmp_path,
-        "view --no-version -s NA00001,NA00003",
+        "view --no-version -s NA00001,NA00003 --no-update",
         "sample.vcf.gz",
         "view --no-version",
         vcz,
@@ -55,7 +55,7 @@ def test_remove_multiple_chunks(tmp_path):
     reduced_samples = ",".join(vcztools_out.strip().split("\n"))
     compare_vcf_and_vcz(
         tmp_path,
-        f"view --no-version -s {reduced_samples}",
+        f"view --no-version -s {reduced_samples} --no-update",
         "chr22.vcf.gz",
         "view --no-version",
         vcz,
@@ -103,7 +103,7 @@ def test_remove_icechunk(tmp_path):
     # check equivalence with original VCF (with sample subsetting)
     compare_vcf_and_vcz(
         tmp_path,
-        "view --no-version -s NA00001,NA00003",
+        "view --no-version -s NA00001,NA00003 --no-update",
         "sample.vcf.gz",
         "view --no-version --zarr-backend-storage icechunk",
         vcz,
